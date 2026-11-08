@@ -141,15 +141,29 @@ export default function LeftSidebar({
             </button>
             {expanded && activeTool === t.id && (
               <div className="ml-6 flex flex-col gap-1 py-1">
-                {submenus[t.id]?.map((s) => (
-                  <button
-                    key={s.action}
-                    onClick={() => onAction(s.action)}
-                    className="rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
-                  >
-                    {s.label}
-                  </button>
-                ))}
+                {t.id === "stickers" ? (
+                  <div className="grid grid-cols-5 gap-1">
+                    {submenus[t.id]?.map((s) => (
+                      <button
+                        key={s.action}
+                        onClick={() => onAction(s.action)}
+                        className="rounded px-1 py-1 text-lg hover:bg-gray-100"
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  submenus[t.id]?.map((s) => (
+                    <button
+                      key={s.action}
+                      onClick={() => onAction(s.action)}
+                      className="rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
+                    >
+                      {s.label}
+                    </button>
+                  ))
+                )}
                 {t.id === "draw" && (
                   <div className="mt-2 flex flex-col gap-2">
                     <label className="text-xs">Mode</label>

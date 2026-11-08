@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabaseClient";
 import type { Item } from "../lib/types";
 
 interface Props {
@@ -11,6 +12,46 @@ interface Props {
 export default function CardRenderer({ item, canEdit, selected, onUpdate }: Props) {
   const c = item.content || {};
   const [play, setPlay] = useState(false);
+  const [showInsert, setShowInsert] = useState(false);
+  const [linkPreview, setLinkPreview] = useState<Record<string, any> | null>(c.linkPreview || null);
+
+  // Fetch Open Graph preview when a link is pasted/inserted
+  useEffect(() => {
+    if (c.linkUrl && (!c.linkPreview || c.linkPreview.url !== c.linkUrl)) {
+      (async () => {
+        try {
+          const { data } = await supabase.functions.invoke("fetch-link-preview", { body: { url: c.linkUrl } });
+          if (data && !data.error) {
+            setLinkPreview(data);
+            onUpdate?.(item.id, { ...c, linkUrl: data.url, linkPreview: { title: data.title, description: data.description, image: data.image, siteName: data.siteName, url: data.url } });
+          }
+        } catch {
+          // ignore
+        }
+      })();
+    } else if (c.linkPreview) {
+      setLinkPreview(c.linkPreview);
+    }
+  }, [c.linkUrl, c.linkPreview, item.id, onUpdate]);
+
+  const insertLink = async (url: string) => {
+    try {
+      const { data } = await supabase.functions.invoke("fetch-link-preview", { body: { url } });
+      if (data && !data.error) {
+        const preview = { title: data.title, description: data.description, image: data.image, siteName: data.siteName, url: data.url };
+        setLinkPreview(preview);
+        onUpdate?.(item.id, { ...c, linkUrl: data.url, linkPreview: preview });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const insertImage = async (url: string) => {
+    const preview = { title: "", description: "", image: url, siteName: "", url };
+    setLinkPreview(preview);
+    onUpdate?.(item.id, { ...c, linkUrl: url, linkPreview: preview });
+  };
 
   if (item.type === "note" && c.shape?.startsWith("arrow")) {
     const dir = c.shape.replace("arrow-", "");
@@ -90,6 +131,47 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
               onChange={(e) => onUpdate?.(item.id, { ...c, color: e.target.value })}
               className="h-6 w-6"
             />
+            <div className="relative">
+              <button
+                onClick={() => setShowInsert((v) => !v)}
+                className="rounded bg-gray-200 px-2 py-1 text-xs"
+              >
+                Insert
+              </button>
+              {showInsert && (
+                <div className="absolute top-8 left-0 z-50 w-32 rounded bg-white p-1 shadow">
+                  <button
+                    className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
+                    onClick={() => {
+                      const url = prompt("Masukkan URL link");
+                      if (url) insertLink(url);
+                      setShowInsert(false);
+                    }}
+                  >
+                    Link
+                  </button>
+                  <button
+                    className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
+                    onClick={() => {
+                      const url = prompt("Masukkan URL gambar");
+                      if (url) insertImage(url);
+                      setShowInsert(false);
+                    }}
+                  >
+                    Gambar
+                  </button>
+                  <button
+                    className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
+                    onClick={() => {
+                      onUpdate?.(item.id, { ...c, text: (c.text ?? "") + " 😀" });
+                      setShowInsert(false);
+                    }}
+                  >
+                    Sticker
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
         <div
@@ -114,12 +196,22 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
               }}
             />
           ) : (
-            <div
-              className="whitespace-pre-wrap"
-              style={{ fontSize: size, fontWeight: bold ? "bold" : "normal", fontStyle: italic ? "italic" : "normal", color: textColor }}
-            >
-              {c.text || "Double-click to edit"}
-            </div>
+            <>
+              <div
+                className="whitespace-pre-wrap"
+                style={{ fontSize: size, fontWeight: bold ? "bold" : "normal", fontStyle: italic ? "italic" : "normal", color: textColor }}
+              >
+                {c.text || "Double-click to edit"}
+              </div>
+              {linkPreview && (
+                <div className="mt-2 rounded border bg-white/90 p-2 shadow flex flex-col gap-1 cursor-pointer" onClick={() => window.open(linkPreview.url, "_blank")}>
+                  {linkPreview.image && <img src={linkPreview.image} alt={linkPreview.title ?? ""} className="h-16 w-full object-cover rounded" />}
+                  <div className="line-clamp-2 text-sm font-semibold text-gray-900">{linkPreview.title || linkPreview.url}</div>
+                  {linkPreview.description && <div className="line-clamp-2 text-xs text-gray-600">{linkPreview.description}</div>}
+                  <div className="mt-auto text-xs text-gray-400 truncate">{linkPreview.url}</div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -177,6 +269,7 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
     );
   }
 
+  // link / article / game / image card
   return (
     <a
       href={c.url}
