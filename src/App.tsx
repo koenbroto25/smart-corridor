@@ -89,26 +89,53 @@ export default function App() {
   }
 
   return (
-    <div>
-      <div className="flex justify-end p-2">
-        {session ? (
-          <button className="rounded bg-gray-200 px-3 py-1" onClick={() => supabase.auth.signOut()}>
-            Sign out
-          </button>
-        ) : (
-          <button className="rounded bg-blue-600 px-3 py-1 text-white" onClick={() => setShowAuth(true)}>
-            Sign in
-          </button>
-        )}
+    <div
+      className="min-h-screen bg-cover bg-center"
+      style={{ backgroundImage: "url('https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=1600&q=80')" }}
+    >
+      <div className="min-h-screen bg-black/40">
+        <div className="flex justify-end p-2">
+          {session ? (
+            <button className="rounded bg-gray-200 px-3 py-1" onClick={() => supabase.auth.signOut()}>
+              Sign out
+            </button>
+          ) : (
+            <button className="rounded bg-blue-600 px-3 py-1 text-white" onClick={() => setShowAuth(true)}>
+              Sign in
+            </button>
+          )}
+        </div>
+        <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="mb-6 flex items-center gap-4 rounded-xl bg-white/90 p-4 shadow">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600 text-2xl text-white">
+              SC
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">smart-corridor-playground</h1>
+              <p className="text-sm text-gray-600">SMP Negeri 26 Balikpapan — Collaborative Playground</p>
+            </div>
+          </div>
+          {showAuth ? (
+            <div className="rounded-xl bg-white/95 p-4 shadow">
+              <button className="mb-2 rounded bg-gray-200 px-3 py-1" onClick={() => setShowAuth(false)}>
+                Back
+              </button>
+              <Auth />
+            </div>
+          ) : (
+            <div className="rounded-xl bg-white/95 p-4 shadow">
+              <SpacesList
+                userId={session?.user?.id}
+                onOpen={(s, r) => {
+                  setSpace(s);
+                  setRole(r);
+                }}
+                onSignIn={() => setShowAuth(true)}
+              />
+            </div>
+          )}
+        </div>
       </div>
-      <SpacesList
-        userId={session?.user?.id}
-        onOpen={(s, r) => {
-          setSpace(s);
-          setRole(r);
-        }}
-        onSignIn={() => setShowAuth(true)}
-      />
     </div>
   );
 }
