@@ -15,6 +15,13 @@ function DraggableCard({
   onSelect,
   onUpdate,
   onDelete,
+  activeTool,
+  drawMode,
+  strokeWidth,
+  defaultColor,
+  crayonStyle,
+  cardDrawingLive,
+  setCardDrawingLive,
 }: {
   item: Item;
   canEdit: boolean;
@@ -24,6 +31,16 @@ function DraggableCard({
   onSelect?: () => void;
   onUpdate: (id: string, patch: Partial<Item>) => void;
   onDelete: (id: string) => void;
+  onCardDrawStart?: () => void;
+  onCardDrawMove?: (x: number, y: number) => void;
+  onCardDrawEnd?: () => void;
+  activeTool?: string;
+  drawMode?: string;
+  strokeWidth?: number;
+  defaultColor?: string;
+  crayonStyle?: string;
+  cardDrawingLive?: { itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null;
+  setCardDrawingLive?: React.Dispatch<React.SetStateAction<{ itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null>>;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
@@ -31,6 +48,7 @@ function DraggableCard({
   });
   const resizing = React.useRef(false);
   const resizeStart = React.useRef({ x: 0, y: 0, w: item.width, h: item.height });
+  const cardDrawing = useRef<{ pts: { x: number; y: number }[]; style: Record<string, any> } | null>(null);
   const style: React.CSSProperties = {
     position: "absolute",
     left: item.x * scale + offset.x,
@@ -50,7 +68,39 @@ function DraggableCard({
       {...attributes}
       onClick={() => onSelect?.()}
     >
-      <CardRenderer item={item} canEdit={canEdit} selected={selected} onUpdate={(id, content) => onUpdate(id, { content })} />
+      <CardRenderer
+        item={item}
+        canEdit={canEdit}
+        selected={selected}
+        activeTool={activeTool}
+        drawMode={drawMode}
+        strokeWidth={strokeWidth}
+        defaultColor={defaultColor}
+        crayonStyle={crayonStyle}
+        cardDrawingLive={cardDrawingLive}
+        onUpdate={(id, content) => onUpdate(id, { content })}
+        onCardDrawStart={() => {
+          cardDrawing.current = { pts: [], style: { color: defaultColor, width: strokeWidth, mode: drawMode, dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none", opacity: drawMode === "marker" ? 0.5 : 1 } };
+          setCardDrawingLive?.({ itemId: item.id, pts: [], style: { color: defaultColor, width: strokeWidth, mode: drawMode, dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none", opacity: drawMode === "marker" ? 0.5 : 1 } });
+        }}
+        onCardDrawMove={(x: number, y: number) => {
+          if (!cardDrawing.current) return;
+          cardDrawing.current.pts.push({ x, y });
+          setCardDrawingLive?.((prev: { itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null) => (prev && prev.itemId === item.id ? { ...prev, pts: [...prev.pts, { x, y }] } : prev));
+        }}
+        onCardDrawEnd={async () => {
+          if (!cardDrawing.current || cardDrawing.current.pts.length < 2) {
+            cardDrawing.current = null;
+            setCardDrawingLive?.(null);
+            return;
+          }
+          await onUpdate(item.id, {
+            content: { ...item.content, drawings: [...(item.content?.drawings ?? []), cardDrawing.current] },
+          });
+          cardDrawing.current = null;
+          setCardDrawingLive?.(null);
+        }}
+      />
       {canEdit && selected && (
         <div
           onPointerDown={(e) => {
@@ -114,8 +164,12 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
   const [items, setItems] = useState<Item[]>([]);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
+  const [livePoints, setLivePoints] = useState<{ x: number; y: number }[]>([]);
+  const [liveStyle, setLiveStyle] = useState<Record<string, any> | null>(null);
+  const [cardDrawingLive, setCardDrawingLive] = useState<{ itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null>(null);
   const panning = useRef(false);
   const last = useRef({ x: 0, y: 0 });
+  const drawingRef = useRef<{ mode: string; pts: { x: number; y: number }[] } | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   useEffect(() => {
@@ -339,9 +393,20 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
       }
       const pt = { x: (e.clientX - rect.left - offset.x) / scale, y: (e.clientY - rect.top - offset.y) / scale };
       const pts: { x: number; y: number }[] = [pt];
+      const style = {
+        color: defaultColor,
+        width: strokeWidth,
+        mode: drawMode,
+        dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none",
+        opacity: drawMode === "marker" ? 0.5 : 1,
+      };
+      drawingRef.current = { mode: drawMode, pts };
+      setLivePoints(pts);
+      setLiveStyle(style);
       const move = (ev: PointerEvent) => {
         const p = { x: (ev.clientX - rect.left - offset.x) / scale, y: (ev.clientY - rect.top - offset.y) / scale };
         pts.push(p);
+        setLivePoints([...pts]);
       };
       const up = async () => {
         document.removeEventListener("pointermove", move);
@@ -349,13 +414,12 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
         if (pts.length > 1) {
           await createItem(spaceId, "drawing", 0, 0, {
             points: pts,
-            color: defaultColor,
-            width: strokeWidth,
-            mode: drawMode,
-            dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none",
-            opacity: drawMode === "marker" ? 0.5 : 1,
+            ...style,
           });
         }
+        setLivePoints([]);
+        setLiveStyle(null);
+        drawingRef.current = null;
         setActiveTool("select");
       };
       document.addEventListener("pointermove", move);
@@ -426,8 +490,32 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
               onSelect={() => setSelectedId(item.id)}
               onUpdate={persistUpdate}
               onDelete={persistDelete}
+              activeTool={activeTool}
+              drawMode={drawMode}
+              strokeWidth={strokeWidth}
+              defaultColor={defaultColor}
+              crayonStyle={crayonStyle}
+              cardDrawingLive={cardDrawingLive}
+              setCardDrawingLive={setCardDrawingLive}
             />
           ))}
+          {livePoints.length > 1 && liveStyle && (
+            <svg
+              className="absolute inset-0 pointer-events-none"
+              style={{ width: "100%", height: "100%" }}
+            >
+              <path
+                d={livePoints.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x * scale + offset.x} ${p.y * scale + offset.y}`).join(" ")}
+                fill="none"
+                stroke={liveStyle.color ?? "#111827"}
+                strokeWidth={liveStyle.width * scale}
+                strokeDasharray={liveStyle.dash === "none" ? undefined : liveStyle.dash}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity={liveStyle.opacity ?? 1}
+              />
+            </svg>
+          )}
         </div>
       </DndContext>
     </div>

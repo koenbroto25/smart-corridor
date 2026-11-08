@@ -6,10 +6,19 @@ interface Props {
   item: Item;
   canEdit: boolean;
   selected?: boolean;
+  activeTool?: string;
+  drawMode?: string;
+  strokeWidth?: number;
+  defaultColor?: string;
+  crayonStyle?: string;
+  cardDrawingLive?: { itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null;
   onUpdate?: (id: string, content: Record<string, any>) => void;
+  onCardDrawStart?: () => void;
+  onCardDrawMove?: (x: number, y: number) => void;
+  onCardDrawEnd?: () => void;
 }
 
-export default function CardRenderer({ item, canEdit, selected, onUpdate }: Props) {
+export default function CardRenderer({ item, canEdit, selected, activeTool, drawMode, strokeWidth, defaultColor, crayonStyle, cardDrawingLive, onUpdate, onCardDrawStart, onCardDrawMove, onCardDrawEnd }: Props) {
   const c = item.content || {};
   const [play, setPlay] = useState(false);
   const [showInsert, setShowInsert] = useState(false);
@@ -51,6 +60,20 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
     const preview = { title: "", description: "", image: url, siteName: "", url };
     setLinkPreview(preview);
     onUpdate?.(item.id, { ...c, linkUrl: url, linkPreview: preview });
+  };
+
+  const insertFrame = async (url: string) => {
+    const isVideo = /youtube\.com|youtu\.be|vimeo\.com/i.test(url);
+    const frame = {
+      type: isVideo ? "video" : "image",
+      url,
+      title: isVideo ? "Video" : "Gambar",
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 150,
+    };
+    onUpdate?.(item.id, { ...c, frames: [...(c.frames ?? []), frame] });
   };
 
   if (item.type === "note" && c.shape?.startsWith("arrow")) {
@@ -163,6 +186,25 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
                   <button
                     className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
                     onClick={() => {
+                      const url = prompt("Masukkan URL video (YouTube/Vimeo)");
+                      if (url) insertFrame(url);
+                      setShowInsert(false);
+                    }}
+                  >
+                    Frame Video
+                  </button>
+                  <button
+                    className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
+                    onClick={() => {
+                      onUpdate?.(item.id, { ...c, drawings: [...(c.drawings ?? []), { points: [], color: defaultColor, width: strokeWidth, dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none", opacity: drawMode === "marker" ? 0.5 : 1 }] });
+                      setShowInsert(false);
+                    }}
+                  >
+                    Drawing
+                  </button>
+                  <button
+                    className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
+                    onClick={() => {
                       onUpdate?.(item.id, { ...c, text: (c.text ?? "") + " 😀" });
                       setShowInsert(false);
                     }}
@@ -182,6 +224,28 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
             textAlign: align as any,
           }}
           onDoubleClick={() => canEdit && setEditing(true)}
+          onPointerDown={(e) => {
+            if (activeTool === "draw" && canEdit && selected && onCardDrawStart) {
+              e.stopPropagation();
+              onCardDrawStart();
+              const rect = e.currentTarget.getBoundingClientRect();
+              const startX = e.clientX - rect.left;
+              const startY = e.clientY - rect.top;
+              onCardDrawMove?.(startX, startY);
+              const move = (ev: PointerEvent) => {
+                const x = ev.clientX - rect.left;
+                const y = ev.clientY - rect.top;
+                onCardDrawMove?.(x, y);
+              };
+              const up = () => {
+                document.removeEventListener("pointermove", move);
+                document.removeEventListener("pointerup", up);
+                onCardDrawEnd?.();
+              };
+              document.addEventListener("pointermove", move);
+              document.addEventListener("pointerup", up);
+            }
+          }}
         >
           {canEdit && editing ? (
             <textarea
@@ -198,11 +262,62 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
           ) : (
             <>
               <div
-                className="whitespace-pre-wrap"
+                className="whitespace-pre-wrap break-words"
                 style={{ fontSize: size, fontWeight: bold ? "bold" : "normal", fontStyle: italic ? "italic" : "normal", color: textColor }}
               >
                 {c.text || "Double-click to edit"}
               </div>
+              {c.drawings && c.drawings.length > 0 && (
+                <div className="relative w-full h-full overflow-hidden mt-2" style={{ position: "relative" }}>
+                  <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
+                    {c.drawings.map((d: any, di: number) => {
+                      const pts = d.points || [];
+                      const dd = pts.map((p: any, i: number) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+                      return (
+                        <path
+                          key={di}
+                          d={dd}
+                          fill="none"
+                          stroke={d.color ?? "#111827"}
+                          strokeWidth={d.width ?? 3}
+                          strokeDasharray={d.dash === "none" ? undefined : d.dash}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          opacity={d.opacity ?? 1}
+                        />
+                      );
+                    })}
+                  </svg>
+                </div>
+              )}
+              {c.frames && c.frames.length > 0 && (
+                <div className="mt-3 flex flex-col gap-2">
+                  {c.frames.map((f: any, fi: number) => (
+                    <div key={fi} className="relative rounded overflow-hidden shadow border">
+                      {f.type === "image" && f.url ? (
+                        <img src={f.url} alt={f.title ?? ""} className="w-full h-48 object-cover" />
+                      ) : (
+                        <div className="flex h-48 items-center justify-center bg-gray-100 text-xs text-gray-500">{f.type}</div>
+                      )}
+                      {f.title && <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 text-xs text-white">{f.title}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {cardDrawingLive && cardDrawingLive.itemId === item.id && cardDrawingLive.pts.length > 1 && (
+                <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
+                  <path
+                    d={cardDrawingLive.pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ")}
+                    fill="none"
+                    stroke={cardDrawingLive.style.color ?? "#111827"}
+                    strokeWidth={cardDrawingLive.style.width ?? 3}
+                    strokeDasharray={cardDrawingLive.style.dash === "none" ? undefined : cardDrawingLive.style.dash}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={cardDrawingLive.style.opacity ?? 1}
+                  />
+                </svg>
+              )}
               {linkPreview && (
                 <div className="mt-2 rounded border bg-white/90 p-2 shadow flex flex-col gap-1 cursor-pointer" onClick={() => window.open(linkPreview.url, "_blank")}>
                   {linkPreview.image && <img src={linkPreview.image} alt={linkPreview.title ?? ""} className="h-16 w-full object-cover rounded" />}
