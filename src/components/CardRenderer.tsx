@@ -82,7 +82,7 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
     return (
       <div className="relative h-full w-full" style={{ fontFamily: font }}>
         {canEdit && selected && (
-          <div className="absolute -top-10 left-0 z-50 flex items-center gap-1 rounded bg-white p-1 shadow">
+          <div className="absolute -top-10 left-0 z-[9998] flex items-center gap-1 rounded bg-white p-1 shadow overflow-visible">
             <select
               value={font}
               onChange={(e) => onUpdate?.(item.id, { ...c, font: e.target.value })}
@@ -139,7 +139,7 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
                 Insert
               </button>
               {showInsert && (
-                <div className="absolute top-8 left-0 z-50 w-32 rounded bg-white p-1 shadow">
+                <div className="absolute top-8 left-0 z-[9999] w-32 rounded bg-white p-1 shadow overflow-visible">
                   <button
                     className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-gray-100"
                     onClick={() => {
@@ -175,7 +175,7 @@ export default function CardRenderer({ item, canEdit, selected, onUpdate }: Prop
           </div>
         )}
         <div
-          className="h-full w-full p-3 shadow"
+          className="relative h-full w-full p-3 shadow overflow-visible"
           style={{
             backgroundColor: color,
             borderRadius: shape === "circle" ? "50%" : "0.5rem",
