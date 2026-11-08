@@ -20,8 +20,6 @@ function DraggableCard({
   strokeWidth,
   defaultColor,
   crayonStyle,
-  cardDrawingLive,
-  setCardDrawingLive,
 }: {
   item: Item;
   canEdit: boolean;
@@ -39,8 +37,6 @@ function DraggableCard({
   strokeWidth?: number;
   defaultColor?: string;
   crayonStyle?: string;
-  cardDrawingLive?: { itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null;
-  setCardDrawingLive?: React.Dispatch<React.SetStateAction<{ itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null>>;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.id,
@@ -77,28 +73,23 @@ function DraggableCard({
         strokeWidth={strokeWidth}
         defaultColor={defaultColor}
         crayonStyle={crayonStyle}
-        cardDrawingLive={cardDrawingLive}
         onUpdate={(id, content) => onUpdate(id, { content })}
         onCardDrawStart={() => {
           cardDrawing.current = { pts: [], style: { color: defaultColor, width: strokeWidth, mode: drawMode, dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none", opacity: drawMode === "marker" ? 0.5 : 1 } };
-          setCardDrawingLive?.({ itemId: item.id, pts: [], style: { color: defaultColor, width: strokeWidth, mode: drawMode, dash: crayonStyle === "dashed" ? "8,4" : crayonStyle === "dotted" ? "2,6" : crayonStyle === "zigzag" ? "4,2,1,2" : "none", opacity: drawMode === "marker" ? 0.5 : 1 } });
         }}
         onCardDrawMove={(x: number, y: number) => {
           if (!cardDrawing.current) return;
           cardDrawing.current.pts.push({ x, y });
-          setCardDrawingLive?.((prev: { itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null) => (prev && prev.itemId === item.id ? { ...prev, pts: [...prev.pts, { x, y }] } : prev));
         }}
         onCardDrawEnd={async () => {
           if (!cardDrawing.current || cardDrawing.current.pts.length < 2) {
             cardDrawing.current = null;
-            setCardDrawingLive?.(null);
             return;
           }
           await onUpdate(item.id, {
             content: { ...item.content, drawings: [...(item.content?.drawings ?? []), cardDrawing.current] },
           });
           cardDrawing.current = null;
-          setCardDrawingLive?.(null);
         }}
       />
       {canEdit && selected && (
@@ -166,7 +157,6 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
   const [scale, setScale] = useState(1);
   const [livePoints, setLivePoints] = useState<{ x: number; y: number }[]>([]);
   const [liveStyle, setLiveStyle] = useState<Record<string, any> | null>(null);
-  const [cardDrawingLive, setCardDrawingLive] = useState<{ itemId: string; pts: { x: number; y: number }[]; style: Record<string, any> } | null>(null);
   const panning = useRef(false);
   const last = useRef({ x: 0, y: 0 });
   const drawingRef = useRef<{ mode: string; pts: { x: number; y: number }[] } | null>(null);
@@ -495,8 +485,6 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
               strokeWidth={strokeWidth}
               defaultColor={defaultColor}
               crayonStyle={crayonStyle}
-              cardDrawingLive={cardDrawingLive}
-              setCardDrawingLive={setCardDrawingLive}
             />
           ))}
           {livePoints.length > 1 && liveStyle && (
