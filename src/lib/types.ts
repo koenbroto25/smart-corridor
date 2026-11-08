@@ -22,5 +22,7 @@ export interface Space {
   owner_id: string;
   is_public: boolean;
   invite_code?: string | null;
+  cover_image?: string | null;
+  cover_color?: string | null;
   created_at?: string;
 }

@@ -407,6 +407,7 @@ export default function BoardCanvas({ spaceId, canEdit }: { spaceId: string; can
       )}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div
+          id="board-canvas"
           className="relative flex-1 overflow-visible bg-gray-100"
           style={{ cursor: activeTool === "draw" ? (drawMode === "eraser" ? "cell" : "crosshair") : activeTool === "pan" ? "grab" : "default" }}
           onWheel={onWheel}
