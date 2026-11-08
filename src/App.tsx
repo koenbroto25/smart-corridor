@@ -269,17 +269,21 @@ function ShareModal({ space, onClose }: { space: Space; onClose: () => void }) {
         </button>
       </div>
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <input
-            id="public-toggle"
-            type="checkbox"
-            className="rounded bg-gray-100 border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-          />
-          <label className="text-sm font-medium text-gray-700" htmlFor="public-toggle">
-            Make public (visible on homepage)
-          </label>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-2">Visibility</label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="visibility" value="public" checked={isPublic} onChange={() => setIsPublic(true)} />
+              Public (visible on homepage)
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="visibility" value="private" checked={!isPublic} onChange={() => setIsPublic(false)} />
+              Not public (private)
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {isPublic ? "Anyone can view this playground on the homepage." : "Only members can open this playground."}
+          </p>
         </div>
 
         <div>
