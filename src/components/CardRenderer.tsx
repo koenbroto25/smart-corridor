@@ -144,6 +144,12 @@ export default function CardRenderer({ item, canEdit, selected, activeTool, draw
           </div>
         )}
         <div className="relative h-full w-full p-3 shadow overflow-visible" style={{ backgroundColor: bgColor, borderRadius: shape === "circle" ? "50%" : "0.5rem", textAlign: align as any }} onDoubleClick={() => canEdit && setEditing(true)} onPointerDown={(e) => { if (activeTool === "draw" && canEdit && selected && onCardDrawStart) { e.stopPropagation(); onCardDrawStart(); const rect = e.currentTarget.getBoundingClientRect(); const startX = e.clientX - rect.left; const startY = e.clientY - rect.top; onCardDrawMove?.(startX, startY); const move = (ev: PointerEvent) => { const x = ev.clientX - rect.left; const y = ev.clientY - rect.top; onCardDrawMove?.(x, y); }; const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); onCardDrawEnd?.(); }; document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); } }}>
+          {canEdit && selected && (
+            <div className="absolute -top-10 right-0 z-[9999] flex gap-1">
+              <button onClick={() => setSettingsOpen(true)} className="rounded bg-indigo-600 px-2 py-1 text-xs text-white shadow">⚙</button>
+              <button onClick={() => setShowQR(true)} className="rounded bg-green-600 px-2 py-1 text-xs text-white shadow">QR</button>
+            </div>
+          )}
           {canEdit && editing ? (
             <textarea className="h-full w-full resize-none bg-transparent outline-none" style={{ fontSize: editSize, fontWeight: bold ? "bold" : "normal", fontStyle: italic ? "italic" : "normal", color: editTextColor }} value={c.text ?? ""} autoFocus onChange={(e) => { const v = e.target.value; onUpdate?.(item.id, { ...c, text: v }); }} onBlur={() => onUpdate?.(item.id, { ...c, text: c.text ?? "" })} />
           ) : (
@@ -196,9 +202,9 @@ export default function CardRenderer({ item, canEdit, selected, activeTool, draw
   return (
     <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow">
       {canEdit && selected && (
-        <div className="absolute -top-10 left-0 z-[9998] flex items-center gap-1 rounded bg-white p-1 shadow overflow-visible">
-          <button onClick={() => setSettingsOpen(true)} className="rounded bg-indigo-600 px-2 py-1 text-xs text-white">⚙</button>
-          <button onClick={() => setShowQR(true)} className="rounded bg-green-600 px-2 py-1 text-xs text-white">QR</button>
+        <div className="absolute -top-10 right-0 z-[9999] flex gap-1">
+          <button onClick={() => setSettingsOpen(true)} className="rounded bg-indigo-600 px-2 py-1 text-xs text-white shadow">⚙</button>
+          <button onClick={() => setShowQR(true)} className="rounded bg-green-600 px-2 py-1 text-xs text-white shadow">QR</button>
         </div>
       )}
       {showQR && (

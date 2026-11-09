@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import html2canvas from "html2canvas";
+import { QRCodeSVG } from "qrcode.react";
 import { jsPDF } from "jspdf";
 import { supabase } from "./lib/supabaseClient";
 import type { Space } from "./lib/types";
@@ -217,6 +218,9 @@ function ShareModal({ space, onClose }: { space: Space; onClose: () => void }) {
   const [coverImage, setCoverImage] = useState(space.cover_image ?? "");
   const [cardTitle, setCardTitle] = useState(space.name);
   const [saving, setSaving] = useState(false);
+  const [showSpaceQR, setShowSpaceQR] = useState(false);
+
+  const spaceUrl = `${window.location.origin}?space=${space.id}`;
 
   const save = async () => {
     setSaving(true);
@@ -260,94 +264,116 @@ function ShareModal({ space, onClose }: { space: Space; onClose: () => void }) {
     setSaving(false);
   };
 
-  return (
-    <div className="rounded-xl bg-white p-6 shadow-lg max-w-lg w-full">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold text-gray-900">Share Playground</h2>
-        <button className="rounded bg-gray-200 px-3 py-1" onClick={onClose}>
-          ✕
+  const qrModal = (
+    <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+      <div className="rounded bg-white p-4 shadow text-center">
+        <QRCodeSVG value={spaceUrl} size={200} />
+        <p className="mt-2 text-sm text-gray-600 truncate" title={spaceUrl}>{spaceUrl}</p>
+        <button className="mt-2 rounded bg-gray-200 px-3 py-1 text-xs" onClick={() => setShowSpaceQR(false)}>
+          Tutup
         </button>
       </div>
-      <div className="space-y-4">
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">Visibility</label>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="visibility" value="public" checked={isPublic} onChange={() => setIsPublic(true)} />
-              Public (visible on homepage)
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="visibility" value="private" checked={!isPublic} onChange={() => setIsPublic(false)} />
-              Not public (private)
-            </label>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="rounded-xl bg-white p-6 shadow-lg max-w-lg w-full">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Share Playground</h2>
+          <button className="rounded bg-gray-200 px-3 py-1" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Visibility</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="visibility" value="public" checked={isPublic} onChange={() => setIsPublic(true)} />
+                Public (visible on homepage)
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="visibility" value="private" checked={!isPublic} onChange={() => setIsPublic(false)} />
+                Not public (private)
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {isPublic ? "Anyone can view this playground on the homepage." : "Only members can open this playground."}
+            </p>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            {isPublic ? "Anyone can view this playground on the homepage." : "Only members can open this playground."}
-          </p>
-        </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Card title</label>
-          <input
-            className="w-full rounded border px-2 py-1"
-            value={cardTitle}
-            onChange={(e) => setCardTitle(e.target.value)}
-          />
-        </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Card title</label>
+            <input
+              className="w-full rounded border px-2 py-1"
+              value={cardTitle}
+              onChange={(e) => setCardTitle(e.target.value)}
+            />
+          </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Card cover color</label>
-          <input
-            type="color"
-            className="h-8 w-12 rounded border-none cursor-pointer"
-            value={coverColor}
-            onChange={(e) => setCoverColor(e.target.value)}
-          />
-        </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Card cover color</label>
+            <input
+              type="color"
+              className="h-8 w-12 rounded border-none cursor-pointer"
+              value={coverColor}
+              onChange={(e) => setCoverColor(e.target.value)}
+            />
+          </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Card cover image</label>
-          <input
-            type="file"
-            accept="image/*"
-            className="w-full rounded border px-2 py-1"
-            onChange={uploadCover}
-          />
-          {coverImage && (
-            <img src={coverImage} alt="cover" className="mt-2 rounded h-32 w-full object-cover" />
-          )}
-        </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Card cover image</label>
+            <input
+              type="file"
+              accept="image/*"
+              className="w-full rounded border px-2 py-1"
+              onChange={uploadCover}
+            />
+            {coverImage && (
+              <img src={coverImage} alt="cover" className="mt-2 rounded h-32 w-full object-cover" />
+            )}
+          </div>
 
-        <div className="rounded-lg border p-3 flex items-center gap-3 text-sm">
-          <div className="rounded h-12 w-12" style={{ backgroundColor: coverColor }}></div>
-          <span className="font-medium truncate">{cardTitle}</span>
-          <span className="ml-auto text-xs text-gray-500">{isPublic ? "Public" : "Private"}</span>
-        </div>
+          <div className="rounded-lg border p-3 flex items-center gap-3 text-sm">
+            <div className="rounded h-12 w-12" style={{ backgroundColor: coverColor }}></div>
+            <span className="font-medium truncate">{cardTitle}</span>
+            <span className="ml-auto text-xs text-gray-500">{isPublic ? "Public" : "Private"}</span>
+          </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            className="rounded bg-gray-200 px-4 py-2 text-gray-800 disabled:opacity-50"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Close
-          </button>
-          <button
-            className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
-            onClick={save}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button
-            className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50"
-            onClick={exportPDF}
-            disabled={saving}
-          >
-            Export PDF
-          </button>
+          <div className="flex justify-end gap-2 mt-6">
+            <button
+              className="rounded bg-gray-200 px-4 py-2 text-gray-800 disabled:opacity-50"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Close
+            </button>
+            <button
+              className="rounded bg-green-600 px-4 py-2 text-white disabled:opacity-50"
+              onClick={() => setShowSpaceQR(true)}
+              disabled={saving}
+            >
+              Scan Barcode (QR)
+            </button>
+            <button
+              className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              className="rounded bg-indigo-600 px-4 py-2 text-white disabled:opacity-50"
+              onClick={exportPDF}
+              disabled={saving}
+            >
+              Export PDF
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+      {showSpaceQR && qrModal}
+    </>
   );
 }
