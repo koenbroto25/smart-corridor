@@ -116,6 +116,18 @@ export default function SpacesList({ userId, onOpen, onSignIn }: Props) {
                   >
                     Open
                   </button>
+                  {role === "owner" && (
+                    <button
+                      className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+                      onClick={async () => {
+                        if (!confirm("Hapus space ini? Data akan hilang permanen.")) return;
+                        await supabase.from("spaces").delete().eq("id", space.id);
+                        await load();
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
